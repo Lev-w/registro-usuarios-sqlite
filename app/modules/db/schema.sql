@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    rol TEXT DEFAULT 'user'
+);
+
+CREATE TABLE IF NOT EXISTS auditoria (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    actor_id INTEGER NOT NULL,
+    accion TEXT NOT NULL,
+    objetivo_id INTEGER,
+   entidad TEXT,
+    descripcion TEXT,
+   fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

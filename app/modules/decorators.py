@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import session, g, abort
-import app.modules.db as db
+import app.modules.services.usuario_service as usuario_service
 
 def login_required(f):
     @wraps(f)
@@ -8,7 +8,7 @@ def login_required(f):
         if "user_id" not in session:
             abort(401, description="No autenticado")
 
-        usuario = db.obtener_perfil(session["user_id"])
+        usuario = usuario_service.obtener_perfil(session["user_id"])
 
         if not usuario:
             session.clear()
@@ -18,7 +18,6 @@ def login_required(f):
 
         return f(*args, **kwargs)
     return wrapper
-
 
 def roles_required(*roles):
     def decorator(f):
