@@ -1,5 +1,6 @@
 import app.modules.services.usuario_service as usuario_service
-from app.modules.db.db import get_connection
+from app.modules.db.db import get_session
+from app.modules.db.models import UsuarioModel
 
 #--------------------------------CREAR USUARIO------------------------------------------------------
 
@@ -150,12 +151,13 @@ def test_ver_mi_perfil_no_logueado(client, usuario):
     assert response.json["error"] == "No autenticado"
 
 def test_ver_mi_perfil_usuario_eliminado(client, cliente_logueado):
-    conn = get_connection()
+    session = get_session()
     try:
-        conn.execute("DELETE FROM usuarios WHERE id = ?", (cliente_logueado["user_id"],))
-        conn.commit()
+        usuario = session.get(UsuarioModel, cliente_logueado["user_id"])
+        session.delete(usuario)
+        session.commit()
     finally:
-        conn.close()
+        session.close()
 
     response = client.get("/perfil")
 

@@ -1,21 +1,61 @@
-import sqlite3
-from pathlib import Path
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
 import app.config as config
+from app.modules.db.models import Base
 
-BASE_DIR = Path(__file__).parent
-schema_path = BASE_DIR / 'schema.sql'
+engine = None
+SessionLocal = None
 
-def get_connection():
-    print(f"\n[CONEXIÓN DB] Conectando a: {config.DATABASE_NAME}")
-    con = sqlite3.connect(config.DATABASE_NAME)
-    con.row_factory = sqlite3.Row
-    con.execute('PRAGMA foreign_keys = ON')
-    return con
 
-def init_db():
-    con = get_connection()
-    with open(schema_path, encoding="utf-8") as archivo:
-        sql = archivo.read()
-    con.executescript(sql)
-    con.commit()
-    con.close()
+def _sqlite_url(database_url):
+    if database_url:
+        return database_url
+    return getattr(config, "DATABASE_URL", None) or f"sqlite:///{config.DATABASE_NAME}"
+
+
+def configure_engine(database_url=None):
+    global engine, SessionLocal
+
+    url = _sqlite_url(database_url)
+    kwargs = {}
+
+    if url.startswith("sqlite"):
+        kwargs["connect_args"] = {"check_same_thread": False}
+        if ":memory:" in url:
+            kwargs["poolclass"] = StaticPool
+
+    engine = create_engine(url, **kwargs)
+
+    if url.startswith("sqlite"):
+        @event.listens_for(engine, "connect")
+        def _set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys = ON")
+            cursor.close()
+
+    SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    return engine
+
+
+def get_session():
+    if SessionLocal is None:
+        configure_engine()
+    return SessionLocal()
+
+
+def init_db(database_url=None):
+    configure_engine(database_url)
+    Base.metadata.create_all(bind=engine)
+
+
+def reset_db():
+    global engine, SessionLocal
+
+    if engine is not None:
+        Base.metadata.drop_all(bind=engine)
+        engine.dispose()
+
+    engine = None
+    SessionLocal = None

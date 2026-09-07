@@ -1,48 +1,53 @@
-from app.modules.db.db import get_connection
+from sqlalchemy import select
+
+from app.modules.db.db import get_session
+from app.modules.db.models import AuditoriaModel
+
 
 def registrar_accion(actor_id, accion, objetivo_id=None, entidad=None, descripcion=None):
+    session = get_session()
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO auditoria (actor_id, accion, objetivo_id, entidad, descripcion) VALUES (?, ?, ?, ?, ?)
-        """, (actor_id, accion, objetivo_id, entidad, descripcion))
-        conn.commit()
+        session.add(AuditoriaModel(
+            actor_id=actor_id,
+            accion=accion,
+            objetivo_id=objetivo_id,
+            entidad=entidad,
+            descripcion=descripcion,
+        ))
+        session.commit()
     finally:
-        cursor.close()
-        conn.close()
+        session.close()
+
 
 def obtener_auditoria(filtros, orden, limit, offset):
+    session = get_session()
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        query = "SELECT * FROM auditoria WHERE 1=1"
-        params = []
+        columnas_validas = {
+            "id": AuditoriaModel.id,
+            "objetivo_id": AuditoriaModel.objetivo_id,
+            "fecha": AuditoriaModel.fecha,
+            "actor_id": AuditoriaModel.actor_id,
+        }
+        columna_orden = columnas_validas.get(orden, AuditoriaModel.id)
 
-        columnas_validas = ["id", "objetivo_id", "fecha", "actor_id"]
-        if orden not in columnas_validas:
-            orden = "id"
+        query = select(AuditoriaModel)
 
         if filtros.get("actor_id") is not None:
-            query += " AND actor_id = ?"
-            params.append(filtros["actor_id"])
+            query = query.where(AuditoriaModel.actor_id == filtros["actor_id"])
 
         if filtros.get("accion") is not None:
-            query += " AND accion = ?"
-            params.append(filtros["accion"])
-    
+            query = query.where(AuditoriaModel.accion == filtros["accion"])
+
         if filtros.get("entidad") is not None:
-            query += " AND entidad = ?"
-            params.append(filtros["entidad"])
-        
-        query += f" ORDER BY {orden} DESC LIMIT ? OFFSET ?"
-        params.append(limit)
-        params.append(offset)
+            query = query.where(AuditoriaModel.entidad == filtros["entidad"])
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
+        query = (
+            query.order_by(columna_orden.desc())
+            .limit(limit)
+            .offset(offset)
+        )
 
-        return [dict(row) for row in rows]
+        logs = session.scalars(query).all()
+        return [log.to_dict() for log in logs]
     finally:
-        cursor.close()
-        conn.close()
+        session.close()

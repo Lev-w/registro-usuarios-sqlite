@@ -1,6 +1,9 @@
 def validar_usuario(data):
     if not data:
         return None, "Se requiere JSON"
+
+    if not isinstance(data, dict):
+        return None, "JSON inválido"
     
     username = data.get("username")
     password = data.get("password")
@@ -24,6 +27,9 @@ def validar_usuario(data):
 def validar_login(data):
     if not data:
         return None, "Se requiere JSON"
+
+    if not isinstance(data, dict):
+        return None, "JSON inválido"
     
     username = data.get("username")
     password = data.get("password")
